@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Арена Гладиаторов V3.11: Улучшения UI и Баланса</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #222831;
+            --surface-color: #393E46;
+            --primary-color: #00ADB5;
+            --secondary-color: #EEEEEE;
+            --text-color: #EEEEEE;
+            --danger-color: #F05454;
+            --warning-color: #FFC107;
+            --enrage-color: #ff4d4d;
+            --bonus-health-color: #8BC34A;
+            --elite-weapon-color: #AF7AC5;
+            --root-color: #8D6E63;
+            --slow-color: #78909C;
+            --poison-color: #4CAF50;
+            --poison-effect-color: #388E3C;
+            --modifier-color: #82EEFD;
+            --evasion-color: #AED6F1;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 15px;
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        .container { display: flex; width: 100%; max-width: 1800px; gap: 20px; }
+        .scoreboard { background-color: var(--surface-color); padding: 25px; border-radius: 10px; width: 350px; box-shadow: 0 5px 15px rgba(0,0,0,0.35); flex-shrink: 0; display: flex; flex-direction: column;}
+        .scoreboard h2 { margin-top: 0; text-align: center; color: var(--primary-color); font-size: 1.7em; border-bottom: 2px solid var(--primary-color); padding-bottom: 12px; margin-bottom: 18px; }
+        .scoreboard ul { list-style: none; padding: 0; flex-grow: 1; }
+        .scoreboard li { padding: 10px 8px; border-bottom: 1px solid #4f555d; display: flex; justify-content: space-between; align-items: center; font-size: 1em; transition: background-color 0.2s ease-in-out; }
+        .scoreboard li:hover { background-color: #4a5058; }
+        .scoreboard li:last-child { border-bottom: none; }
+        .scoreboard .wins { color: var(--warning-color); font-weight: bold; font-size: 1.15em; margin-left: auto; padding-left:10px; }
+        .scoreboard .fighter-checkbox { margin-right: 10px; transform: scale(1.2); cursor: pointer;}
+
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; gap: 20px; }
+        .arena-container { display: flex; flex-direction: column; align-items: center; }
+
+        .arena {
+            background: #554c45 url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="40" height="40"><path d="M10 10 H70 V70 H10Z M0 0 H80 V80 H0Z" stroke-width="0.5" stroke="rgba(0,0,0,0.1)" fill="none"/><circle cx="40" cy="40" r="30" stroke-width="0.5" stroke="rgba(0,0,0,0.1)" fill="none"/></svg>');
+            border: 7px solid #39312e;
+            border-radius: 12px; width: 1000px; height: 700px; position: relative; margin: 10px auto; box-shadow: 0 6px 20px rgba(0,0,0,0.45); overflow: hidden;
+        }
+
+        .fighter-on-arena {
+            position: absolute; display: flex; flex-direction: column; align-items: center;
+            width: 70px; height: 95px;
+            transition: transform 0.12s ease-out, opacity 0.3s ease-in-out, filter 0.2s;
+            z-index: 5; cursor: default;
+        }
+        .fighter-on-arena:hover .fighter-name-display { opacity: 1; transform: translateY(-3px) scale(1.05); }
+
+        .fighter-on-arena::after {
+            content: ''; position: absolute; bottom: -8px; left: 50%;
+            transform: translateX(-50%); width: 40px; height: 8px;
+            border-radius: 4px; opacity: 0; transition: opacity 0.3s ease-in-out;
+        }
+        .fighter-on-arena.is-rooted::after { background-color: var(--root-color); box-shadow: 0 0 8px var(--root-color); opacity: 0.8; }
+        .fighter-on-arena.is-slowed::after { background-color: var(--slow-color); opacity: 0.7; width: 30px; height: 5px; }
+        .fighter-on-arena.is-stunned img { animation: pulseStunned 0.5s infinite alternate; }
+        @keyframes pulseStunned { from { box-shadow: 0 0 8px 2px var(--warning-color); transform: rotate(-2deg); } to { box-shadow: 0 0 12px 4px var(--warning-color); transform: rotate(2deg); } }
+
+        .fighter-on-arena .health-bar-container { width: 60px; height: 10px; background-color: #333; border: 1px solid #1a1a1a; border-radius: 3px; margin-bottom: 4px; padding: 1px; box-sizing: border-box; }
+        .fighter-on-arena .health-bar { width: 100%; height: 100%; background-color: #4CAF50; border-radius: 1px; transition: width 0.2s ease-out, background-color 0.2s ease-out; }
+        .fighter-on-arena .health-bar.poisoned { background-color: var(--poison-color) !important; }
+
+        .fighter-on-arena img { width: 55px; height: 55px; border-radius: 50%; border: 2px solid var(--secondary-color); object-fit: cover; box-shadow: 0 3px 10px rgba(0,0,0,0.5); background-color: #666; transition: box-shadow 0.2s; }
+        .fighter-on-arena.enraged img { box-shadow: 0 0 12px 3px var(--enrage-color); animation: pulseEnrageShadow 0.7s infinite alternate; }
+        @keyframes pulseEnrageShadow { from { box-shadow: 0 0 10px 2px var(--enrage-color); } to { box-shadow: 0 0 18px 5px var(--enrage-color); } }
+        .fighter-on-arena .fighter-name-display { font-size: 0.65em; color: var(--bg-color); background-color: var(--primary-color); padding: 2px 5px; border-radius: 4px; margin-top: 3px; white-space: nowrap; font-weight: bold; opacity: 0.9; transition: opacity 0.2s, transform 0.2s, background-color 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .fighter-on-arena.enraged .fighter-name-display { background-color: var(--enrage-color); color: var(--secondary-color); }
+        .fighter-on-arena .weapon-emoji { font-size: 17px; margin-top: 2px; }
+        .fighter-on-arena.defeated { opacity: 0.2; transform: rotate(80deg) scale(0.55) translateY(20px); filter: grayscale(100%) blur(1.5px); z-index: 1 !important; }
+        .fighter-on-arena.attacking { transform: scale(1.12); }
+        .fighter-on-arena.hit { animation: shakeHit 0.22s; }
+        @keyframes shakeHit { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 25% { transform: translate(-4px, 1px) rotate(-2deg); } 50% { transform: translate(4px, -1px) rotate(2deg); } 75% { transform: translate(-2px, 0px) rotate(0deg); } }
+        @keyframes confuseSway { 0% {transform: rotate(-3deg);} 100% {transform: rotate(3deg);} }
+        .projectile { position: absolute; font-size: 22px; z-index: 10; transition: transform 0.18s linear, opacity 0.18s linear; text-shadow: 0 0 6px rgba(0,0,0,0.6); }
+        .projectile.hit-target { opacity: 0; transform: scale(2); }
+        .battle-log { background-color: var(--surface-color); padding: 18px; border-radius: 10px; width: 100%; max-width: 1000px; height: 200px; overflow-y: auto; font-size: 0.92em; box-shadow: 0 5px 15px rgba(0,0,0,0.35); border: 1px solid #4f555d; }
+        .battle-log p { margin: 5px 2px; padding: 6px 0; border-bottom: 1px dashed #4f555d; }
+        .battle-log p:last-child { border-bottom: none; }
+        .battle-log .log-damage { color: #FFAB76; }
+        .battle-log .log-crit-damage { color: #ff6b6b; font-weight: bold; text-shadow: 0 0 5px #ff6b6b; }
+        .battle-log .log-kill { color: var(--danger-color); font-weight: bold; }
+        .battle-log .log-winner { color: var(--warning-color); font-weight: bold; font-size: 1.12em; }
+        .battle-log .log-effect { color: var(--primary-color); font-style: italic; }
+        .battle-log .log-poison { color: var(--poison-effect-color); font-weight: bold; }
+        .battle-log .log-enrage { color: var(--enrage-color); font-weight: bold; font-style: italic; text-shadow: 0 0 3px var(--enrage-color); }
+        .battle-log .log-bonus { color: var(--bonus-health-color); font-weight: bold; text-shadow: 0 0 3px var(--bonus-health-color);}
+        .battle-log .log-elite-weapon { color: var(--elite-weapon-color); font-weight: bold; text-shadow: 0 0 5px var(--elite-weapon-color); }
+        .battle-log .log-round-start { color: var(--primary-color); font-weight: bold; text-align: center; font-size: 1.15em; text-transform: uppercase; }
+        .battle-log .log-duel { color: var(--danger-color); font-weight: bold; text-align: center; font-size: 1.15em; }
+        .battle-log .log-modifier { color: var(--modifier-color); font-weight: bold; font-style: italic; text-align: center; font-size: 1.1em; text-shadow: 0 0 4px var(--modifier-color); }
+        .battle-log .log-evasion { color: var(--evasion-color); font-style: italic;}
+        h1 { color: var(--primary-color); text-shadow: 1px 1px 4px rgba(0,0,0,0.6); font-size: 2.8em; margin-bottom: 10px; text-transform: uppercase; }
+        button#start-button { padding: 12px 28px; font-size: 1.35em; background: linear-gradient(145deg, var(--primary-color), #007A7F); color: var(--secondary-color); border: none; border-radius: 8px; cursor: pointer; margin-bottom: 10px; transition: background 0.25s, transform 0.1s, opacity 0.2s; font-weight: bold; box-shadow: 0 3px 8px rgba(0,0,0,0.3); text-transform: uppercase; }
+        button#start-button:hover { background: linear-gradient(145deg, #00c1cb, #008F95); transform: translateY(-2px); }
+        button#start-button:active { transform: translateY(0px); }
+        button#start-button:disabled { background: #555e66; color: #999; cursor: not-allowed; box-shadow: none; }
+        .hit-spark { position: absolute; width: 10px; height: 10px; background-color: var(--warning-color); border-radius: 50%; opacity: 0.9; transform: scale(1); animation: hitSparkAnim 0.25s ease-out forwards; z-index: 15; pointer-events: none; }
+        .hit-spark.critical { background-color: var(--danger-color); width: 15px; height: 15px; animation: critSparkAnim 0.3s ease-out forwards; }
+        @keyframes hitSparkAnim { 0% { transform: scale(0.5); opacity: 0.9; } 50% { transform: scale(1.6); opacity: 0.6; } 100% { transform: scale(0.7); opacity: 0; } }
+        @keyframes critSparkAnim { 0% { transform: scale(0.6) rotate(0deg); opacity: 1; } 50% { transform: scale(1.8) rotate(45deg); opacity: 0.7; } 100% { transform: scale(0.8) rotate(90deg); opacity: 0; } }
+        .aoe-indicator { position: absolute; border: 3px dashed rgba(255, 120, 0, 0.75); border-radius: 50%; opacity: 1; animation: aoeFadeOut 0.4s ease-out forwards; z-index: 3; pointer-events: none; box-sizing: border-box; }
+        @keyframes aoeFadeOut { 0% { opacity: 0.75; transform: scale(0.7); } 100% { opacity: 0; transform: scale(1.3); } }
+        .arena-bonus { position: absolute; width: 35px; height: 35px; border-radius: 50%; z-index: 4; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 0 10px 3px rgba(255,255,255,0.5); cursor: help; transition: transform 0.2s ease-in-out; }
+        .arena-bonus:hover { transform: scale(1.1); }
+        .arena-bonus.health-pack { background-color: var(--bonus-health-color); border: 2px solid #689F38; color: #1B5E20; font-weight: bold;}
+        .arena-bonus.elite-weapon-pickup { background-color: var(--elite-weapon-color); border: 3px solid #8E44AD; color: var(--secondary-color); font-size: 24px; box-shadow: 0 0 15px 5px var(--elite-weapon-color); animation: pulseEliteWeapon 1s infinite alternate; }
+        @keyframes pulseEliteWeapon { from { box-shadow: 0 0 12px 4px var(--elite-weapon-color); transform: scale(1); } to { box-shadow: 0 0 20px 7px var(--elite-weapon-color); transform: scale(1.05); } }
+
+        #round-info-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.85); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; color: var(--secondary-color); padding: 20px; box-sizing: border-box; }
+        #round-info-overlay h2 { color: var(--primary-color); font-size: 2.5em; margin-bottom: 15px; text-transform: uppercase; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        #round-info-overlay ul { list-style: none; padding: 0; max-height: 60vh; overflow-y: auto; text-align: left; background-color: var(--surface-color); padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.5); margin-bottom: 15px; }
+        #round-info-overlay li { font-size: 1.2em; margin-bottom: 12px; padding: 8px; border-bottom: 1px solid #4f555d; }
+        #round-info-overlay li:last-child { border-bottom: none; margin-bottom: 0; }
+        #round-info-overlay .fighter-name-info { color: var(--warning-color); font-weight: bold; }
+        #round-info-overlay .weapon-name-info { color: var(--secondary-color); }
+        #round-info-overlay .weapon-emoji-info { font-size: 1.3em; margin-left: 10px; }
+        #place-bet-button { padding: 10px 20px; font-size: 1.1em; background-color: var(--warning-color); color: var(--bg-color); border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; display: none; font-weight: bold; }
+
+        #betting-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.92); z-index: 1001; flex-direction: column; align-items: center; justify-content: center; color: var(--secondary-color); padding: 20px; box-sizing: border-box; }
+        #betting-modal h2 {color: var(--primary-color); margin-bottom: 15px;}
+        #betting-modal p { margin: 5px 0; }
+        #betting-modal label { margin-right: 10px; }
+        #betting-modal select, #betting-modal input[type="number"] { padding: 8px; font-size: 1em; border-radius: 4px; border: 1px solid var(--primary-color); background-color: var(--surface-color); color: var(--text-color); }
+        #betting-modal button { padding: 10px 20px; font-size: 1.1em; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        #confirm-bet-button { background-color: var(--primary-color); color: var(--secondary-color); margin-right:10px; }
+        #skip-bet-button { background-color: var(--surface-color); color: var(--primary-color); }
+        #betting-payouts { margin: 15px 0; font-size: 0.9em; text-align:left; background-color: #2f343b; padding:10px 15px; border-radius: 5px; border: 1px solid var(--primary-color); }
+        #betting-payouts p { margin: 3px 0;}
+        #bet-error-message { color: var(--danger-color); margin-top: 10px; font-weight: bold; }
+
+        #buy-land-button {
+            padding: 10px 15px;
+            font-size: 0.95em;
+            background-color: var(--warning-color);
+            color: var(--bg-color);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            display: block; /* Always visible */
+            width:calc(100% - 30px);
+            margin-left:15px;
+            margin-right:15px;
+            box-sizing: border-box;
+            font-weight: bold;
+            transition: opacity 0.3s ease-in-out;
+        }
+        #buy-land-button.disabled { /* Style for when not enough gold */
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+
+        #game-over-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #ffd700, #ffec80, #fffacd); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; color: #333; padding: 20px; box-sizing: border-box; text-align: center; }
+        #game-over-overlay h1 { font-size: 3.8em; color: #8B4513; text-shadow: 2px 2px 0px #fff, 3px 3px 5px rgba(0,0,0,0.5); margin-bottom: 20px;}
+        #game-over-overlay p { font-size: 2.2em; color: #4A3B31; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Арена Гладиаторов</h1>
+    <div id="player-gold-display" style="text-align: center; font-size: 1.6em; margin-bottom: 12px; color: var(--warning-color); font-weight: bold;">Золото: 10000 💰</div>
+    <button id="start-button">Начать Первую Битву!</button>
+
+    <div id="round-info-overlay">
+        <h2>Вооружение Бойцов</h2>
+        <ul id="weapon-info-list"></ul>
+        <button id="place-bet-button">Сделать Ставку!</button>
+    </div>
+
+    <div id="betting-modal">
+        <h2>Сделать Ставку на Бойца</h2>
+        <p>Ваше золото: <span id="betting-modal-gold">10000</span> 💰</p>
+        <p style="font-size:0.9em; color: #ccc;">Каждый раунд вы получаете 100 💰</p>
+        <div style="margin: 15px 0;">
+            <label for="bet-fighter-select">Выберите бойца:</label>
+            <select id="bet-fighter-select"></select>
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label for="bet-amount-input">Сумма ставки:</label>
+            <input type="number" id="bet-amount-input" min="1" style="width: 100px;">
+        </div>
+        <div id="betting-payouts">
+            <p><strong>Выплаты:</strong></p>
+            <p>1-е место: Ставка x10</p>
+            <p>2-е место: Ставка x5</p>
+            <p>3-е место: Ставка x3</p>
+        </div>
+        <div>
+            <button id="confirm-bet-button">Поставить!</button>
+            <button id="skip-bet-button">Продолжить без ставки</button>
+        </div>
+        <p id="bet-error-message"></p>
+    </div>
+
+     <div id="game-over-overlay">
+        <h1>ВЫ СТАЛИ БОГОМ!</h1>
+        <p>ПОЗДРАВЛЯЕМ, КОНЕЦ ИГРЫ!</p>
+    </div>
+
+
+    <div class="container">
+        <div class="scoreboard">
+            <h2>Таблица Лидеров</h2>
+            <ul id="scoreboard-list"></ul>
+            <button id="buy-land-button">ПОТРАТИТЬ 10,000,000 💰 И ПОБЕДИТЬ!</button>
+        </div>
+
+        <div class="main-content">
+            <div class="arena-container">
+                <div class="arena" id="arena"></div>
+                <div class="battle-log" id="battle-log">
+                    <p>Добро пожаловать! Нажмите кнопку выше, чтобы начать побоище.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ДАННЫЕ, КОНСТАНТЫ и ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
+        const fightersInitialData = [
+             { id: "fighter1", name: "Андрей Д", image: "images/Андрей Д.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'closest', caution: 0.01, aggression: 0.98, "learnedGrudges": {} } },
+             { id: "fighter2", name: "Андрей", image: "images/Андрей.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'weakest', caution: 0.03, aggression: 0.95, "learnedGrudges": {} } },
+             { id: "fighter3", name: "Валера", image: "images/Валера.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'random', caution: 0.005, aggression: 0.99, "learnedGrudges": {} } },
+             { id: "fighter4", name: "Вова", image: "images/Вова.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'closest', caution: 0.04, aggression: 0.92, "learnedGrudges": {} } },
+             { id: "fighter5", name: "Глеб", image: "images/Глеб.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'highest_threat', caution: 0.02, aggression: 0.96, "learnedGrudges": {} } },
+             { id: "fighter6", name: "Кирилл", image: "images/Кирилл.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'random', caution: 0.01, aggression: 0.97, "learnedGrudges": {} } },
+             { id: "fighter7", name: "Олег", image: "images/Олег.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'weakest', caution: 0.05, aggression: 0.90, "learnedGrudges": {} } },
+             { id: "fighter8", name: "Панк", image: "images/Панк.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'closest', caution: 0.001, aggression: 1.0, "learnedGrudges": {} } },
+             { id: "fighter9", name: "Санёк Гер", image: "images/Санек Гер.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'highest_threat', caution: 0.02, aggression: 0.94, "learnedGrudges": {} } },
+             { id: "fighter10", name: "Санёк Гол", image: "images/Санек.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'random', caution: 0.015, aggression: 0.95, "learnedGrudges": {} } },
+             { id: "fighter11", name: "Тимоха", image: "images/Тимоха.jpg", wins: 0, participating: true, combatStats: { preferredTargetType: 'weakest', caution: 0.06, aggression: 0.88, "learnedGrudges": {} } }
+        ];
+        const eliteWeaponData = { name: "Двойной Разрядник", emoji: "➹➹", action: "стреляет сдвоенными разрядами в", type: "ranged", range: 360, damage: 12, projectile: "↯↯", hitChance: 0.80, special: 'dual_target', count: 2 };
+        const weapons = [
+            { name: "Меч", emoji: "⚔️", action: "рубит", type: "melee", range: 85, damage: 11, projectile: null, hitChance: 0.88 },
+            { name: "Тяжелый Щит", emoji: "🛡️", action: "таранит щитом", type: "melee", range: 75, damage: 8, projectile: null, hitChance: 0.90, effects: [{type: 'stun', chance: 0.15, duration: 700}]},
+            { name: "Длинный Лук", emoji: "🏹", action: "стреляет из лука в", type: "ranged", range: 380, damage: 10, projectile: "❯", hitChance: 0.78 },
+            { name: "Кинжал Ассасина", emoji: "🔪", action: "наносит удар кинжалом", type: "melee", range: 65, damage: 9, projectile: null, hitChance: 0.92, effects: [{type: 'bleed', chance: 0.30, damagePerTick: 1.8, duration: 3500}]},
+            { name: "Боевая Секира", emoji: "🪓", action: "рубит секирой", type: "melee", range: 95, damage: 14, projectile: null, hitChance: 0.80, areaEffect: {radius: 40, damageFraction: 0.25} },
+            { name: "Кувалда", emoji: "🔨", action: "сокрушает кувалдой", type: "melee", range: 100, damage: 15, projectile: null, hitChance: 0.76, effects: [{type: 'armor_break', chance: 0.20, value: 0.25, duration: 5000}], areaEffect: {radius: 55, damageFraction: 0.38} },
+            { name: "Трезубец Охотника", emoji: "🔱", action: "колет трезубцем", type: "melee", range: 120, damage: 12, projectile: null, hitChance: 0.83, effects: [{type: 'knockback', chance: 0.15, distance: 25}]},
+            { name: "Огненный Взрыв", emoji: "🔥", action: "мечет огненный сгусток в", type: "ranged", range: 320, damage: 11, projectile: "☄️", hitChance: 0.70, areaEffect: {radius: 65, damageFraction: 0.60} },
+            { name: "Ледяная Стрела", emoji: "❄️", action: "пускает ледяную стрелу в", type: "ranged", range: 340, damage: 10, projectile: "🧊", hitChance: 0.74, effects: [{type: 'slow', chance: 0.35, value: 0.60, duration: 2500}]},
+            { name: "Разряд Молнии", emoji: "⚡", action: "бьет молнией в", type: "ranged", range: 420, damage: 16, projectile: "↯", hitChance: 0.65, effects: [{type: 'stun', chance: 0.08, duration: 400}]},
+            { name: "Осколочная Бомба", emoji: "💣", action: "кидает бомбу к", type: "ranged", range: 220, damage: 17, projectile: "💥", hitChance: 0.62, areaEffect: {radius: 85, damageFraction: 0.70} },
+            { name: "Едкая Склянка", emoji: "🧪", action: "плещет кислотой в", type: "ranged", range: 160, damage: 4, projectile: "💧", hitChance: 0.80, effects: [{type: 'poison', chance: 1.0, duration: 5000, damagePercentPerTick: 0.02}]},
+            { name: "Посох Чар", emoji: "🪄", action: "направляет чары на", type: "ranged", range: 390, damage: 9, projectile: "✨", hitChance: 0.70, effects: [{type: 'confuse', chance: 0.18, duration: 3500}]},
+            { name: "Кремневое Ружье", emoji: "━╤デ╦", action: "стреляет из ружья в", type: "ranged", range: 480, damage: 22, projectile: "•", hitChance: 0.60, slowAttack: 1200, penetration: 0.30, effects: [{type: 'knockback', chance: 0.25, distance: 20}] },
+        ];
+        let currentFighters = [];
+        let arenaBonuses = [];
+        const battleLogEl = document.getElementById('battle-log');
+        const scoreboardListEl = document.getElementById('scoreboard-list');
+        const arenaEl = document.getElementById('arena');
+        const startButtonEl = document.getElementById('start-button');
+        const roundInfoOverlayEl = document.getElementById('round-info-overlay');
+        const weaponInfoListEl = document.getElementById('weapon-info-list');
+
+        const BASE_FIGHTER_MAX_HEALTH = 70;
+        const fighterWidth = 70; const fighterHeight = 95; const spawnMargin = 20; const baseFighterSpeed = 2.4; const fighterManeuverRadius = 35; const attackBaseCooldown = 1400; const newRoundDelay = 4500;
+        const PRE_ROUND_WEAPON_DISPLAY_DURATION = 5000;
+        let gameLoopInterval; let roundInProgress = false; let firstRoundStarted = false; let duelContenders = null; let roundCounter = 0;
+        const ENRAGE_HEALTH_THRESHOLD = 0.22; const BASE_ENRAGE_CHANCE = 0.20; const ENRAGE_DURATION = 6000; const ENRAGE_COOLDOWN = 20000; const BASE_ENRAGE_DAMAGE_MULTIPLIER = 1.4;
+        const CRITICAL_HIT_CHANCE = 0.24;
+        const CRITICAL_HIT_MULTIPLIER = 1.75; const MAX_ARENA_BONUSES = 2;
+        const HEALTH_PACK_HEAL_AMOUNT = 30; const BONUS_SPAWN_CHANCE_PER_TICK = 0.0015; const FINISH_HIM_THRESHOLD = 15;
+        const ELITE_WEAPON_SPAWN_ROUND_INTERVAL_MIN = 2; const ELITE_WEAPON_SPAWN_ROUND_INTERVAL_MAX = 3; let nextEliteWeaponSpawnRound = ELITE_WEAPON_SPAWN_ROUND_INTERVAL_MIN + Math.floor(Math.random() * (ELITE_WEAPON_SPAWN_ROUND_INTERVAL_MAX - ELITE_WEAPON_SPAWN_ROUND_INTERVAL_MIN + 1));
+        const STUCK_CHECK_INTERVAL = 2500;
+        const STUCK_MOVE_THRESHOLD = 5;
+
+        // --- BETTING & GOLD SYSTEM VARIABLES ---
+        let playerGold = 10000;
+        let currentBet = { fighterId: null, amount: 0, placed: false };
+        let isBettingPaused = false;
+        let preRoundTimeoutId = null;
+        let defeatedFightersOrder = [];
+        const WIN_AMOUNT_FOR_LAND = 10000000; // Increased cost
+        let isGameOver = false;
+
+        const playerGoldDisplayEl = document.getElementById('player-gold-display');
+        const placeBetButtonEl = document.getElementById('place-bet-button');
+        const bettingModalEl = document.getElementById('betting-modal');
+        const bettingModalGoldEl = document.getElementById('betting-modal-gold');
+        const betFighterSelectEl = document.getElementById('bet-fighter-select');
+        const betAmountInputEl = document.getElementById('bet-amount-input');
+        const confirmBetButtonEl = document.getElementById('confirm-bet-button');
+        const skipBetButtonEl = document.getElementById('skip-bet-button');
+        const betErrorMessageEl = document.getElementById('bet-error-message');
+        const buyLandButtonEl = document.getElementById('buy-land-button');
+        const gameOverOverlayEl = document.getElementById('game-over-overlay');
+
+        // --- ROUND MODIFIERS ---
+        let activeRoundModifier = null;
+        const MODIFIER_CHANCE_PER_ROUND = 0.30;
+        const roundModifiers = [
+            { id: "sudden_death", name: "Внезапная Смерть", description: "🩸 Все бойцы начинают раунд с 50% здоровья!", },
+            { id: "berserker_rage", name: "Ярость Берсерков", description: "🔥 Шанс впасть в ярость x2, урон в ярости +20%!", getModifiedEnrageChance: () => BASE_ENRAGE_CHANCE * 2, getModifiedEnrageDamageMultiplier: () => BASE_ENRAGE_DAMAGE_MULTIPLIER * 1.2, },
+            { id: "heavy_hits", name: "Тяжелые Удары", description: "⚔️ Урон в ближнем бою +20%, 🏹 урон дальнего боя -10%!", getDamageMultiplier: (weaponType) => { if (weaponType === 'melee') return 1.20; if (weaponType === 'ranged') return 0.90; return 1; } },
+            { id: "agility_arena", name: "Арена Ловкости", description: "👟 Все бойцы двигаются на 20% быстрее!", getSpeedMultiplier: () => 1.20, }
+        ];
+
+
+        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+        function logMessage(message, type = "") { if(isGameOver && type !== "log-winner" && type !== "log-kill" && type !== "log-modifier") return; console.log(`LOG [${type}]: ${message.replace(/<[^>]*>?/gm, '')}`); const p = document.createElement('p'); p.innerHTML = message; if (type) p.classList.add(type); battleLogEl.appendChild(p); battleLogEl.scrollTop = battleLogEl.scrollHeight; }
+        function getDistance(obj1, obj2) { const x1_center = obj1.x + (obj1.width || fighterWidth) / 2; const y1_center = obj1.y + (obj1.height || fighterHeight) / 2; const x2_center = obj2.x + (obj2.width || fighterWidth) / 2; const y2_center = obj2.y + (obj2.height || fighterHeight) / 2; const dx = x1_center - x2_center; const dy = y1_center - y2_center; return Math.sqrt(dx * dx + dy * dy); }
+        function hasLineOfSight(p1, p2, obstacles) { return true; }
+        function checkCollision(rect1, rect2) { const collisionPadding = 1; return rect1.x < rect2.x + rect2.width + collisionPadding && rect1.x + rect1.width + collisionPadding > rect2.x && rect1.y < rect2.y + rect2.height + collisionPadding && rect1.y + rect1.height + collisionPadding > rect2.y; }
+        function canAttackWhileRooted(fighter) { return fighter.weapon.type === 'ranged'; }
+
+        function updatePlayerGoldDisplay() {
+            if (playerGoldDisplayEl) playerGoldDisplayEl.innerHTML = `Золото: ${playerGold.toLocaleString()} 💰`; // Added toLocaleString for readability
+            if (bettingModalGoldEl) bettingModalGoldEl.textContent = playerGold.toLocaleString();
+            if (buyLandButtonEl) {
+                if (playerGold >= WIN_AMOUNT_FOR_LAND && !isGameOver) {
+                    buyLandButtonEl.classList.remove('disabled');
+                } else {
+                    buyLandButtonEl.classList.add('disabled');
+                }
+            }
+        }
+
+        function updateScoreboard() {
+            if (!scoreboardListEl) { console.error("Scoreboard list element not found!"); return; }
+            scoreboardListEl.innerHTML = '';
+            const sortedFighters = [...fightersInitialData].sort((a, b) => b.wins - a.wins);
+            sortedFighters.forEach(fighterData => {
+                const li = document.createElement('li');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.classList.add('fighter-checkbox');
+                checkbox.checked = fighterData.participating;
+                checkbox.dataset.fighterId = fighterData.id;
+                checkbox.disabled = isGameOver;
+                checkbox.addEventListener('change', (event) => {
+                    const fId = event.target.dataset.fighterId;
+                    const fData = fightersInitialData.find(f => f.id === fId);
+                    if (fData) {
+                        fData.participating = event.target.checked;
+                        console.log(`Fighter ${fData.name} participation set to: ${fData.participating}`);
+                        updateScoreboard();
+                    }
+                });
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = fighterData.name;
+                const winsSpan = document.createElement('span');
+                winsSpan.classList.add('wins');
+                winsSpan.textContent = '🏆'.repeat(fighterData.wins);
+                li.appendChild(checkbox);
+                li.appendChild(nameSpan);
+                li.appendChild(winsSpan);
+                scoreboardListEl.appendChild(li);
+            });
+        }
+
+        // --- СОЗДАНИЕ ЭЛЕМЕНТОВ ---
+        function createFighterInstance(data) {
+            console.log("Creating instance for:", data.name);
+            const arenaWidth = arenaEl.offsetWidth; const arenaHeight = arenaEl.offsetHeight;
+            if (data.lastDefeatedBy && data.combatStats.learnedGrudges) { data.combatStats.learnedGrudges[data.lastDefeatedBy] = (data.combatStats.learnedGrudges[data.lastDefeatedBy] || 0) + 1; }
+
+            let assignedWeapon;
+            if (roundCounter > 0 && roundCounter % 5 === 0) {
+                 if (!createFighterInstance.commonWeaponThisRound) {
+                    createFighterInstance.commonWeaponThisRound = JSON.parse(JSON.stringify(weapons[Math.floor(Math.random() * weapons.length)]));
+                    console.log("Common weapon for round " + roundCounter + ":", createFighterInstance.commonWeaponThisRound.name);
+                 }
+                 assignedWeapon = JSON.parse(JSON.stringify(createFighterInstance.commonWeaponThisRound));
+            } else {
+                 assignedWeapon = JSON.parse(JSON.stringify(weapons[Math.floor(Math.random() * weapons.length)]));
+            }
+            console.log(data.name + " gets weapon: " + assignedWeapon.name);
+
+            let initialHealth = BASE_FIGHTER_MAX_HEALTH;
+            if (activeRoundModifier && activeRoundModifier.id === 'sudden_death') {
+                initialHealth = BASE_FIGHTER_MAX_HEALTH * 0.5;
+            }
+
+            return { ...data, x: Math.random() * (arenaWidth - fighterWidth - 2 * spawnMargin) + spawnMargin, y: Math.random() * (arenaHeight - fighterHeight - 2 * spawnMargin) + spawnMargin,
+            health: initialHealth, maxHealth: BASE_FIGHTER_MAX_HEALTH,
+            targetFighterId: null, alive: true,
+            weapon: assignedWeapon,
+            lastAttackTime: 0, element: null, statusEffects: [], movementTarget: { x: arenaEl.offsetWidth / 2 + (Math.random() * 150 - 75), y: arenaEl.offsetHeight / 2 + (Math.random() * 150 - 75), type: 'initial_approach' }, lastDamagedBy: null, combatStats: JSON.parse(JSON.stringify(data.combatStats)), isStunned: false, isRooted: false, isSlowed: 1, isConfused: false, isBlinded: false, killedByInLastStep: null, killedInLastStep: null, enrageActive: false, enrageEndTime: 0, enrageCooldownUntil: 0,
+            lastPosition: {x: 0, y: 0}, lastStuckCheckTime: Date.now(),
+            lastDefeatedBy: null
+         };
+        }
+        createFighterInstance.commonWeaponThisRound = null;
+
+        function createFighterElement(fighter) { console.log("Creating element for:", fighter.name); const fighterDiv = document.createElement('div'); fighterDiv.classList.add('fighter-on-arena'); fighterDiv.id = `arena-${fighter.id}`; fighterDiv.style.left = `${fighter.x}px`; fighterDiv.style.top = `${fighter.y}px`; fighterDiv.innerHTML = ` <div class="health-bar-container"> <div class="health-bar"></div> </div> <img src="${fighter.image}" alt="${fighter.name}" onerror="this.style.border='2px solid var(--danger-color)'; this.src='data:image/svg+xml;charset=UTF-8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2255%22 height=%2255%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 stroke=%22%23ff4444%22 stroke-width=%224%22 fill=%22%23eee%22 /><text x=%2250%22 y=%2262%22 font-size=%2240%22 text-anchor=%22middle%22 fill=%22%23cc0000%22 font-family=%22Arial, sans-serif%22 font-weight=%22bold%22>?</text></svg>'; console.error('Ошибка загрузки изображения: ${fighter.image}')"> <span class="weapon-emoji">${fighter.weapon.emoji}</span> <span class="fighter-name-display">${fighter.name}</span> `; arenaEl.appendChild(fighterDiv); fighter.element = fighterDiv; updateFighterElement(fighter); }
+        function spawnHitEffect(x, y, type = 'default') { const sparkEl = document.createElement('div'); sparkEl.classList.add('hit-spark'); if (type === 'critical') { sparkEl.classList.add('critical'); } sparkEl.style.left = `${x + fighterWidth / 2 - (type === 'critical' ? 7.5 : 5)}px`; sparkEl.style.top = `${y + fighterHeight / 3 - (type === 'critical' ? 7.5 : 5)}px`; arenaEl.appendChild(sparkEl); setTimeout(() => { if (sparkEl.parentElement) sparkEl.remove(); }, (type === 'critical' ? 300 : 250)); }
+        function spawnAoeIndicator(centerX, centerY, radius) { const indicatorEl = document.createElement('div'); indicatorEl.classList.add('aoe-indicator'); indicatorEl.style.width = `${radius * 2}px`; indicatorEl.style.height = `${radius * 2}px`; indicatorEl.style.left = `${centerX - radius}px`; indicatorEl.style.top = `${centerY - radius}px`; arenaEl.appendChild(indicatorEl); setTimeout(() => { if (indicatorEl.parentElement) indicatorEl.remove(); }, 400); }
+        function animateProjectile(attacker, defender, projectileChar) { const projectileEl = document.createElement('div'); projectileEl.classList.add('projectile'); projectileEl.textContent = projectileChar; const startX = attacker.x + fighterWidth / 2 - projectileEl.offsetWidth / 2; const startY = attacker.y + fighterHeight / 3; projectileEl.style.left = `${startX}px`; projectileEl.style.top = `${startY}px`; arenaEl.appendChild(projectileEl); const endX = defender.x + fighterWidth / 2 - projectileEl.offsetWidth / 2 + (Math.random() * 12 - 6); const endY = defender.y + fighterHeight / 3 + (Math.random() * 12 - 6); requestAnimationFrame(() => { projectileEl.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`; }); setTimeout(() => { if (projectileEl.parentElement) { projectileEl.classList.add('hit-target'); setTimeout(() => { if(projectileEl.parentElement) projectileEl.remove(); }, 150); } }, 170); }
+
+        // --- УПРАВЛЕНИЕ СОСТОЯНИЯМИ И ЭФФЕКТАМИ ---
+        function applyStatusEffects(fighter) {
+            const currentTime = Date.now();
+            fighter.isStunned = false; fighter.isRooted = false; fighter.isSlowed = 1; fighter.isConfused = false; fighter.isBlinded = false;
+
+            let currentEnrageChance = BASE_ENRAGE_CHANCE;
+            if (activeRoundModifier && activeRoundModifier.id === 'berserker_rage' && activeRoundModifier.getModifiedEnrageChance) {
+                currentEnrageChance = activeRoundModifier.getModifiedEnrageChance();
+            }
+
+            if (fighter.enrageActive && currentTime > fighter.enrageEndTime) { fighter.enrageActive = false; fighter.enrageCooldownUntil = currentTime + ENRAGE_COOLDOWN; logMessage(`💨 <span class="log-enrage">${fighter.name}</span> больше не в ярости.`, "log-enrage"); }
+            if (!fighter.enrageActive && currentTime > fighter.enrageCooldownUntil && fighter.health / fighter.maxHealth < ENRAGE_HEALTH_THRESHOLD && Math.random() < currentEnrageChance) { fighter.enrageActive = true; fighter.enrageEndTime = currentTime + ENRAGE_DURATION; logMessage(`🔥 <span class="log-enrage">${fighter.name}</span> ВПАДАЕТ В ЯРОСТЬ БЕРСЕРКА!`, "log-enrage"); }
+
+            fighter.statusEffects = fighter.statusEffects.filter(effect => {
+                if (currentTime > effect.startTime + effect.duration) { logMessage(`💨 Эффект <span class="log-effect">${effect.type}</span> на ${fighter.name} прошел.`); return false; }
+
+                if (effect.type === 'poison' && effect.damagePercentPerTick && currentTime - (effect.lastTickTime || effect.startTime) >= 1000) {
+                    const poisonDamage = fighter.maxHealth * effect.damagePercentPerTick;
+                    fighter.health -= poisonDamage;
+                    effect.lastTickTime = currentTime;
+                    logMessage(`☠️ <span class="log-poison">${fighter.name}</span> получает ${poisonDamage.toFixed(1)} урона от яда. (❤️${fighter.health.toFixed(1)})`, "log-poison");
+                    if (fighter.health <= 0 && fighter.alive) { fighter.alive = false; fighter.health = 0; fighter.killedByInLastStep = effect.attackerId; logMessage(`💀 <span class="log-kill">${fighter.name}</span> погиб от яда!`, "log-kill"); if (effect.attackerId) { const originalAttacker = currentFighters.find(f => f.id === effect.attackerId); if(originalAttacker) originalAttacker.combatStats.kills = (originalAttacker.combatStats.kills || 0) + 1; fighter.lastDefeatedBy = effect.attackerId; } fighter.killedInLastStep = null; if (!defeatedFightersOrder.includes(fighter.id)) defeatedFightersOrder.push(fighter.id); }
+                } else if (effect.damagePerTick && currentTime - (effect.lastTickTime || effect.startTime) >= 1000) {
+                    fighter.health -= effect.damagePerTick;
+                    effect.lastTickTime = currentTime;
+                    logMessage(`🩸 ${fighter.name} получает ${effect.damagePerTick.toFixed(1)} урона от <span class="log-effect">${effect.type}</span>. (❤️${fighter.health.toFixed(1)})`, "log-damage");
+                     if (fighter.health <= 0 && fighter.alive) { fighter.alive = false; fighter.health = 0; fighter.killedByInLastStep = effect.attackerId; logMessage(`💀 <span class="log-kill">${fighter.name}</span> погиб от эффекта <span class="log-effect">${effect.type}</span>!`, "log-kill"); if (effect.attackerId) { const originalAttacker = currentFighters.find(f => f.id === effect.attackerId); if(originalAttacker) originalAttacker.combatStats.kills = (originalAttacker.combatStats.kills || 0) + 1; fighter.lastDefeatedBy = effect.attackerId; } fighter.killedInLastStep = null; if (!defeatedFightersOrder.includes(fighter.id)) defeatedFightersOrder.push(fighter.id); }
+                }
+
+                if (effect.type === 'stun' || effect.type === 'paralysis' || effect.type === 'trip') fighter.isStunned = true;
+                if (effect.type === 'root') fighter.isRooted = true;
+                if (effect.type === 'slow') fighter.isSlowed = Math.max(0.15, 1-(effect.value || 0.5));
+                if (effect.type === 'confuse') fighter.isConfused = true;
+                if (effect.type === 'blind') fighter.isBlinded = true;
+
+                return fighter.alive;
+            });
+            fighter.isPoisoned = fighter.statusEffects.some(e => e.type === 'poison');
+            updateFighterElement(fighter);
+        }
+        function applySingleStatusEffect(target, effectDetails, attacker) { target.statusEffects = target.statusEffects.filter(se => se.type !== effectDetails.type); const newEffect = { type: effectDetails.type, startTime: Date.now(), duration: effectDetails.duration, damagePerTick: effectDetails.damagePerTick, damagePercentPerTick: effectDetails.damagePercentPerTick, value: effectDetails.value, attackerId: attacker ? attacker.id : null, lastTickTime: Date.now() }; target.statusEffects.push(newEffect); logMessage(`✨ ${target.name} получает эффект: <span class="log-effect">${effectDetails.type}</span>!`, "log-effect"); if (effectDetails.type === 'stun' || effectDetails.type === 'paralysis' || effectDetails.type === 'trip') target.isStunned = true; if (effectDetails.type === 'root') target.isRooted = true; if (effectDetails.type === 'slow') target.isSlowed = Math.max(0.15, 1 - (effectDetails.value || 0.5)); if (effectDetails.type === 'confuse') target.isConfused = true; if (effectDetails.type === 'blind') target.isBlinded = true; if (effectDetails.type === 'poison') target.isPoisoned = true; const handleDisplacement = (type, distance) => { const dx = (type === 'knockback' ? target.x - attacker.x : attacker.x - target.x); const dy = (type === 'knockback' ? target.y - attacker.y : attacker.y - target.y); const distFactor = Math.sqrt(dx*dx + dy*dy) || 1; let newX = target.x + (dx/distFactor) * distance; let newY = target.y + (dy/distFactor) * distance; const tempTargetRect = {x: newX, y: newY, width: fighterWidth, height: fighterHeight}; let collided = false; const obstacles = [ ...currentFighters.filter(f => f.id !== target.id && f.id !== (attacker ? attacker.id : null) && f.alive) .map(f_obs => ({x: f_obs.x, y: f_obs.y, width: fighterWidth, height: fighterHeight})) ]; for (const obs of obstacles) { if (checkCollision(tempTargetRect, obs)) { collided = true; newX = target.x; newY = target.y; logMessage(`<i>${target.name} уперся в препятствие при смещении!</i>`); break; } } target.x = Math.max(0, Math.min(newX, arenaEl.offsetWidth - fighterWidth)); target.y = Math.max(0, Math.min(newY, arenaEl.offsetHeight - fighterHeight)); }; if ((effectDetails.type === 'knockback' || effectDetails.type === 'pull') && effectDetails.distance && attacker) { handleDisplacement(effectDetails.type, effectDetails.distance); } updateFighterElement(target); }
+
+        // --- ЛОГИКА БОЯ И ДВИЖЕНИЯ ---
+        function chooseTargetLogic(attacker, potentialTargets) { if (potentialTargets.length === 0) return null; if (attacker.combatStats.learnedGrudges) { const sortedGrudges = Object.entries(attacker.combatStats.learnedGrudges) .sort(([,countA], [,countB]) => countB - countA); for (const [grudgeId, count] of sortedGrudges) { if (Math.random() < count * 0.4 + 0.2) { const grudgeTarget = potentialTargets.find(t => t.id === grudgeId); if (grudgeTarget) { logMessage(`<i>${attacker.name} В ЯРОСТИ ищет ${grudgeTarget.name}!</i>`); return grudgeTarget.id; } } } } potentialTargets.sort((a, b) => { let scoreA = 0; let scoreB = 0; scoreA -= getDistance(attacker, a) * (1.5 + attacker.combatStats.aggression); scoreB -= getDistance(attacker, b) * (1.5 + attacker.combatStats.aggression); scoreA += (100 - a.health) * (1.2 + attacker.combatStats.aggression); scoreB += (100 - b.health) * (1.2 + attacker.combatStats.aggression); if (attacker.combatStats.preferredTargetType === 'highest_threat') { if (a.id === attacker.lastDamagedBy) scoreA += 80; if (b.id === attacker.lastDamagedBy) scoreB += 80; } return scoreB - scoreA; }); return potentialTargets.length > 0 ? potentialTargets[0].id : null; }
+        function chooseAction(fighter, aliveFighters, currentBonuses) {
+            const potentialTargets = aliveFighters.filter(f => f.id !== fighter.id && f.alive);
+            let target = currentFighters.find(f => f.id === fighter.targetFighterId);
+
+            const eliteWeaponBonus = currentBonuses.find(b => b.type === 'elite_weapon_pickup');
+            if (eliteWeaponBonus) {
+                let closestFighterToElite = null;
+                let minDistToElite = Infinity;
+                aliveFighters.forEach(af => {
+                    const d = getDistance(af, eliteWeaponBonus);
+                    if (d < minDistToElite) {
+                        minDistToElite = d;
+                        closestFighterToElite = af;
+                    }
+                });
+                if (fighter.id === closestFighterToElite?.id || getDistance(fighter, eliteWeaponBonus) < 200) {
+                     fighter.movementTarget = { x: eliteWeaponBonus.x, y: eliteWeaponBonus.y, type: 'collect_bonus', bonusId: eliteWeaponBonus.id };
+                     fighter.targetFighterId = null;
+                     return;
+                }
+            }
+
+            let retaliate = false;
+            if (fighter.lastDamagedBy) {
+                const attackerWhoDamaged = currentFighters.find(f => f.id === fighter.lastDamagedBy && f.alive);
+                if (attackerWhoDamaged) {
+                    const distanceToAttacker = getDistance(fighter, attackerWhoDamaged);
+                    let finishCurrentTarget = false;
+                    if (target && target.alive && target.health < FINISH_HIM_THRESHOLD) {
+                        if (distanceToAttacker > fighter.weapon.range * 0.6) {
+                            finishCurrentTarget = true;
+                        }
+                    }
+                    if (!finishCurrentTarget && Math.random() < 0.90) {
+                        fighter.targetFighterId = attackerWhoDamaged.id;
+                        target = attackerWhoDamaged;
+                        retaliate = true;
+                    }
+                }
+                fighter.lastDamagedBy = null;
+            }
+
+            const healthPack = currentBonuses.find(b => b.type === 'health_pack');
+            if (healthPack && !retaliate && !(target && target.alive && target.health < FINISH_HIM_THRESHOLD) &&
+                fighter.health < fighter.maxHealth * 0.50) {
+                 const minDistToBonus = getDistance(fighter, healthPack);
+                 if (minDistToBonus < 350) {
+                    const veryCloseEnemy = potentialTargets.find(t => getDistance(fighter, t) < fighter.weapon.range * 0.75);
+                    if (!veryCloseEnemy || minDistToBonus < getDistance(fighter, veryCloseEnemy) * 0.6) {
+                        fighter.movementTarget = { x: healthPack.x, y: healthPack.y, type: 'collect_bonus', bonusId: healthPack.id };
+                        fighter.targetFighterId = null;
+                        return;
+                    }
+                 }
+            }
+
+            if (!fighter.targetFighterId || !target || !target.alive) {
+                fighter.targetFighterId = chooseTargetLogic(fighter, potentialTargets);
+                target = currentFighters.find(f => f.id === fighter.targetFighterId);
+            }
+
+            if (!target || !target.alive) {
+                fighter.targetFighterId = null;
+                fighter.movementTarget = { x: arenaEl.offsetWidth / 2 + (Math.random() * 200 - 100), y: arenaEl.offsetHeight / 2 + (Math.random() * 200 - 100), type: 'patrol_aggressive' };
+                return;
+            }
+
+            const distanceToTarget = getDistance(fighter, target);
+            const inAttackRange = distanceToTarget <= fighter.weapon.range;
+            const cooldownTime = (fighter.weapon.slowAttack || 0) + attackBaseCooldown / (fighter.enrageActive ? 1.3 : 1);
+            const canAttackNow = Date.now() - fighter.lastAttackTime > cooldownTime;
+
+            if (inAttackRange && canAttackNow) {
+                fighter.movementTarget = null;
+                return;
+            }
+
+            if (fighter.weapon.type === 'ranged' && distanceToTarget < fighter.weapon.range * 0.25 && distanceToTarget > 10) {
+                 const idealDistance = fighter.weapon.range * (0.5 + Math.random() * 0.3);
+                 const dx = fighter.x - target.x; const dy = fighter.y - target.y;
+                 const currentDistFactor = Math.sqrt(dx*dx + dy*dy) || 1;
+                 fighter.movementTarget = { x: target.x + (dx / currentDistFactor) * idealDistance, y: target.y + (dy / currentDistFactor) * idealDistance, type: 'kite_aggressive' };
+            } else if (!inAttackRange || (inAttackRange && !canAttackNow)) {
+                if (inAttackRange && !canAttackNow) {
+                    const angleToTarget = Math.atan2(target.y - fighter.y, target.x - fighter.x);
+                    const strafeAngle = angleToTarget + (Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
+                    fighter.movementTarget = { x: fighter.x + Math.cos(strafeAngle) * fighterManeuverRadius, y: fighter.y + Math.sin(strafeAngle) * fighterManeuverRadius, type: 'maneuver_cooldown' };
+                } else {
+                     fighter.movementTarget = { x: target.x, y: target.y, type: 'attack_approach_aggressive' };
+                }
+            } else {
+                fighter.movementTarget = { x: target.x, y: target.y, type: 'attack_approach_fallback' };
+            }
+
+            if (fighter.movementTarget && getDistance(fighter, fighter.movementTarget) < 5 && !canAttackNow) {
+                 fighter.targetFighterId = null; fighter.movementTarget = null;
+            }
+        }
+        function executeAction(fighter, aliveFighters, currentBonuses) {
+            let currentFighterSpeed = baseFighterSpeed;
+            if (activeRoundModifier && activeRoundModifier.id === 'agility_arena' && activeRoundModifier.getSpeedMultiplier) {
+                currentFighterSpeed *= activeRoundModifier.getSpeedMultiplier();
+            }
+
+            const dynamicSpeed = currentFighterSpeed * (fighter.enrageActive ? 1.15 : 1);
+            const currentSpeed = dynamicSpeed * fighter.isSlowed;
+            let finalMoveX = 0; let finalMoveY = 0;
+
+            if (fighter.movementTarget && (!fighter.isRooted || (fighter.isRooted && canAttackWhileRooted(fighter) && fighter.movementTarget.type !== 'collect_bonus'))) {
+                if (!fighter.isRooted) {
+                    const targetX = fighter.movementTarget.x; const targetY = fighter.movementTarget.y;
+                    const dx = targetX - fighter.x; const dy = targetY - fighter.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance > 2) {
+                        finalMoveX = (dx / distance) * currentSpeed;
+                        finalMoveY = (dy / distance) * currentSpeed;
+                    } else {
+                        if (fighter.movementTarget.type === 'collect_bonus' && fighter.movementTarget.bonusId) {
+                            const bonusIndex = currentBonuses.findIndex(b => b.id === fighter.movementTarget.bonusId);
+                            if (bonusIndex !== -1) {
+                                const bonus = currentBonuses[bonusIndex];
+                                if (bonus.type === 'health_pack') { fighter.health = Math.min(fighter.maxHealth, fighter.health + bonus.healAmount); logMessage(`➕ <span class="log-bonus">${fighter.name}</span> подобрал аптечку и исцелился на ${bonus.healAmount}! (❤️${fighter.health.toFixed(0)})`, "log-bonus"); }
+                                else if (bonus.type === 'elite_weapon_pickup' && bonus.weaponData) { fighter.weapon = JSON.parse(JSON.stringify(bonus.weaponData)); logMessage(`🌟 <span class="log-elite-weapon">${fighter.name}</span> подбирает <span class="log-elite-weapon">${bonus.weaponData.name} ${bonus.weaponData.emoji}</span>!`, "log-elite-weapon"); updateFighterElement(fighter); }
+                                if (bonus.element && bonus.element.parentElement) bonus.element.remove();
+                                currentBonuses.splice(bonusIndex, 1);
+                            }
+                        }
+                        fighter.movementTarget = null;
+                    }
+                }
+            }
+
+            const obstacles = aliveFighters.filter(f => f.id !== fighter.id && f.alive)
+                                        .map(f_obs => ({ x: f_obs.x, y: f_obs.y, width: fighterWidth, height: fighterHeight }));
+
+            let proposedX = fighter.x + finalMoveX;
+            let collisionX = false;
+            for (const obs of obstacles) {
+                if (checkCollision({ x: proposedX, y: fighter.y, width: fighterWidth, height: fighterHeight }, obs)) {
+                    finalMoveX = 0;
+                    collisionX = true;
+                    break;
+                }
+            }
+            let proposedY = fighter.y + finalMoveY;
+            let collisionY = false;
+            for (const obs of obstacles) {
+                if (checkCollision({ x: fighter.x + (collisionX ? 0 : finalMoveX) , y: proposedY, width: fighterWidth, height: fighterHeight }, obs)) {
+                    finalMoveY = 0;
+                    collisionY = true;
+                    break;
+                }
+            }
+
+            if (Date.now() - fighter.lastStuckCheckTime > STUCK_CHECK_INTERVAL) {
+                if (getDistance(fighter, fighter.lastPosition) < STUCK_MOVE_THRESHOLD || collisionX || collisionY) {
+                    logMessage(`<i>${fighter.name} застрял, оценивает обстановку...</i>`);
+                    const aliveEnemies = aliveFighters.filter(f => f.id !== fighter.id && f.alive);
+                    if (aliveEnemies.length > 0) {
+                        aliveEnemies.sort((a, b) => getDistance(fighter, a) - getDistance(fighter, b));
+                        const closestEnemy = aliveEnemies[0];
+                        const distanceToClosest = getDistance(fighter, closestEnemy);
+                        const cooldownTime = (fighter.weapon.slowAttack || 0) + attackBaseCooldown / (fighter.enrageActive ? 1.3 : 1);
+                        const canAttackNow = Date.now() - fighter.lastAttackTime > cooldownTime;
+
+                        if (distanceToClosest <= fighter.weapon.range && canAttackNow && (!fighter.isRooted || canAttackWhileRooted(fighter))) {
+                            logMessage(`<i>${fighter.name} застрял и атакует ближайшего: ${closestEnemy.name}!</i>`, "log-effect");
+                            performAttack(fighter, closestEnemy, aliveFighters);
+                            finalMoveX = 0;
+                            finalMoveY = 0;
+                            fighter.movementTarget = null;
+                        } else {
+                            logMessage(`<i>${fighter.name} застрял, движется к ${closestEnemy.name}!</i>`, "log-effect");
+                            fighter.movementTarget = { x: closestEnemy.x, y: closestEnemy.y, type: 'attack_approach_stuck' };
+                            const dxStuck = closestEnemy.x - fighter.x;
+                            const dyStuck = closestEnemy.y - fighter.y;
+                            const distStuck = Math.sqrt(dxStuck * dxStuck + dyStuck * dyStuck);
+                            if (distStuck > 2) {
+                                finalMoveX = (dxStuck / distStuck) * currentSpeed;
+                                finalMoveY = (dyStuck / distStuck) * currentSpeed;
+                                let tempProposedX = fighter.x + finalMoveX;
+                                for (const obs of obstacles) { if (checkCollision({ x: tempProposedX, y: fighter.y, width: fighterWidth, height: fighterHeight }, obs)) { finalMoveX = 0; break;} }
+                                let tempProposedY = fighter.y + finalMoveY;
+                                for (const obs of obstacles) { if (checkCollision({ x: fighter.x + finalMoveX, y: tempProposedY, width: fighterWidth, height: fighterHeight }, obs)) { finalMoveY = 0; break;} }
+                            } else {
+                                finalMoveX = 0; finalMoveY = 0;
+                            }
+                        }
+                    } else {
+                        const randomAngle = Math.random() * Math.PI * 2;
+                        finalMoveX = Math.cos(randomAngle) * currentSpeed * 0.5;
+                        finalMoveY = Math.sin(randomAngle) * currentSpeed * 0.5;
+                        logMessage(`<i>${fighter.name} застрял и совершает случайный маневр.</i>`, "log-effect");
+                    }
+                }
+                fighter.lastPosition = { x: fighter.x, y: fighter.y };
+                fighter.lastStuckCheckTime = Date.now();
+            }
+
+
+            fighter.x += finalMoveX; fighter.y += finalMoveY;
+            fighter.x = Math.max(0, Math.min(fighter.x, arenaEl.offsetWidth - fighterWidth));
+            fighter.y = Math.max(0, Math.min(fighter.y, arenaEl.offsetHeight - fighterHeight));
+
+            if (!(fighter.movementTarget && fighter.movementTarget.type === 'collect_bonus') && (!finalMoveX && !finalMoveY && !fighter.movementTarget)) { // If not moving for bonus, and didn't move due to stuck logic, and no active movement target
+                const target = currentFighters.find(f => f.id === fighter.targetFighterId && f.alive);
+                if (target) {
+                    const distanceToTarget = getDistance(fighter, target);
+                    const cooldownTime = (fighter.weapon.slowAttack || 0) + attackBaseCooldown / (fighter.enrageActive ? 1.3 : 1);
+                    const canAttackNow = Date.now() - fighter.lastAttackTime > cooldownTime;
+                    if (distanceToTarget <= fighter.weapon.range && canAttackNow && (!fighter.isRooted || canAttackWhileRooted(fighter))) {
+                        let actualTarget = target;
+                        if (fighter.isConfused && aliveFighters.length > 1) { const otherTargets = aliveFighters.filter(f => f.id !== fighter.id && f.alive); if (otherTargets.length > 0) { actualTarget = otherTargets[Math.floor(Math.random() * otherTargets.length)]; logMessage(`<i>${fighter.name} в замешательстве и атакует ${actualTarget.name}!</i>`); } }
+                        if (fighter.isBlinded && Math.random() < 0.75) { logMessage(`<i>${fighter.name} ослеплен и промахивается!</i>`); fighter.lastAttackTime = Date.now(); }
+                        else if (hasLineOfSight(fighter, actualTarget, [] )) { performAttack(fighter, actualTarget, aliveFighters); }
+                    }
+                }
+            }
+        }
+        function performAttack(attacker, primaryTarget, aliveFighters) {
+            if (!attacker.alive || !primaryTarget.alive) return;
+            attacker.lastAttackTime = Date.now();
+            const weapon = attacker.weapon;
+            const targets = [primaryTarget];
+            if (weapon.special === 'dual_target' && aliveFighters.length > 1) {
+                let potentialSecondTargets = aliveFighters.filter(f => f.id !== attacker.id && f.id !== primaryTarget.id && f.alive);
+                if (potentialSecondTargets.length > 0) {
+                    potentialSecondTargets.sort((a, b) => getDistance(primaryTarget, a) - getDistance(primaryTarget, b));
+                    targets.push(potentialSecondTargets[0]);
+                }
+            }
+            targets.forEach((defender, index) => {
+                if (!defender || !defender.alive) return;
+                let baseDamage = weapon.damage + (Math.random() * (weapon.damage * 0.25) - (weapon.damage * 0.12));
+                baseDamage = Math.max(1.5, baseDamage);
+
+                if (activeRoundModifier && activeRoundModifier.id === 'heavy_hits' && activeRoundModifier.getDamageMultiplier) {
+                    baseDamage *= activeRoundModifier.getDamageMultiplier(weapon.type);
+                }
+
+                let finalDamage = baseDamage;
+                let isCriticalHit = false;
+                if (Math.random() < CRITICAL_HIT_CHANCE) { isCriticalHit = true; finalDamage *= CRITICAL_HIT_MULTIPLIER; }
+
+                let currentEnrageMultiplier = BASE_ENRAGE_DAMAGE_MULTIPLIER;
+                if (activeRoundModifier && activeRoundModifier.id === 'berserker_rage' && activeRoundModifier.getModifiedEnrageDamageMultiplier) {
+                    currentEnrageMultiplier = activeRoundModifier.getModifiedEnrageDamageMultiplier();
+                }
+                if (attacker.enrageActive) { finalDamage *= currentEnrageMultiplier; }
+
+                const damageLogType = isCriticalHit ? "log-crit-damage" : "log-damage";
+                let logAttackMessage = `${attacker.name} (${attacker.weapon.emoji}) ${attacker.weapon.action} <span class="${damageLogType}">${defender.name}</span> (${defender.weapon.emoji})`;
+                if (isCriticalHit) logAttackMessage = `💥 <span class="log-crit-damage">КРИТ!</span> ${logAttackMessage}`;
+                if (attacker.enrageActive) logAttackMessage += ` <span class="log-enrage">(в ярости!)</span>`;
+                if (targets.length > 1 && index > 0) logAttackMessage = `↳ (вторая цель) ${logAttackMessage}`;
+                logAttackMessage += `...`;
+                logMessage(logAttackMessage);
+                if (index === 0 && attacker.element) { attacker.element.classList.add('attacking'); setTimeout(() => attacker.element && attacker.element.classList.remove('attacking'), 150); }
+                let hitCount = (weapon.special === 'dual_target') ? 1 : (weapon.count || 1);
+                for (let i = 0; i < hitCount; i++) {
+                    setTimeout(() => {
+                        if (!attacker.alive || !defender.alive) return;
+                        if (weapon.type === "ranged" && weapon.projectile) { animateProjectile(attacker, defender, weapon.projectile); }
+                        const hitDelay = weapon.type === "ranged" ? 180 : 40;
+                        setTimeout(() => {
+                            if (!attacker.alive || !defender.alive) return;
+                            let currentHitChance = weapon.hitChance;
+                            if (attacker.isBlinded) currentHitChance *= 0.20;
+
+                            if (attacker.weapon.type === 'ranged' && defender.weapon.type === 'melee') {
+                                currentHitChance *= 0.5;
+                                logMessage(`🛡️ <span class="log-evasion">${defender.name} (с оружием ближнего боя) усложняет попадание для ${attacker.name}!</span>`, "log-evasion");
+                            }
+
+                            if (Math.random() < currentHitChance) {
+                                let actualDamageThisHit = finalDamage / hitCount;
+                                if (weapon.selfDamage && index === 0) { attacker.health -= weapon.selfDamage; if (attacker.health <= 0 && attacker.alive) { attacker.alive = false; attacker.health = 0; logMessage(`💀 <span class="log-kill">${attacker.name}</span> погиб от отдачи своего оружия!`, "log-kill"); if (!defeatedFightersOrder.includes(attacker.id)) defeatedFightersOrder.push(attacker.id); updateFighterElement(attacker); return; } }
+                                defender.health -= actualDamageThisHit;
+                                defender.lastDamagedBy = attacker.id;
+                                let damageTakenMessage = `💥 <span class="${damageLogType}">${defender.name}</span> получает ${actualDamageThisHit.toFixed(1)} урона! (❤️${defender.health.toFixed(1)})`;
+                                logMessage(damageTakenMessage, damageLogType);
+                                if (defender.element) { defender.element.classList.add('hit'); spawnHitEffect(defender.x, defender.y, isCriticalHit ? 'critical' : 'default'); setTimeout(() => defender.element && defender.element.classList.remove('hit'), 220); }
+                                if (weapon.effects) { weapon.effects.forEach(effect => { if (Math.random() < effect.chance) applySingleStatusEffect(defender, effect, attacker); }); }
+                                if (weapon.areaEffect && index === 0) { applyAreaEffect(attacker, defender, weapon.areaEffect, weapon, isCriticalHit, attacker.enrageActive); }
+                                if (defender.health <= 0 && defender.alive) { defender.alive = false; defender.health = 0; defender.killedByInLastStep = attacker.id; attacker.killedInLastStep = defender.id; logMessage(`💀 <span class="log-kill">${defender.name}</span> повержен воином ${attacker.name}!`, "log-kill"); attacker.combatStats.kills = (attacker.combatStats.kills || 0) + 1; defender.lastDefeatedBy = attacker.id; if (!defeatedFightersOrder.includes(defender.id)) defeatedFightersOrder.push(defender.id); }
+                            } else {
+                                logMessage(`🛡️ ${attacker.name} промахивается по ${defender.name}!`);
+                            }
+                            if (attacker.alive) updateFighterElement(attacker);
+                            if (defender.alive || defender.health <= 0) updateFighterElement(defender);
+                        }, hitDelay);
+                    }, i * (weapon.spreadDelay || 40));
+                }
+            });
+        }
+        function applyAreaEffect(attacker, primaryTarget, areaDetails, weapon, isParentAttackCritical, isParentAttackEnraged) { if(!primaryTarget || typeof primaryTarget.x === 'undefined' || typeof primaryTarget.y === 'undefined') return; const effectCenter = { x: (weapon.type === 'melee' ? attacker.x : primaryTarget.x) + fighterWidth / 2, y: (weapon.type === 'melee' ? attacker.y : primaryTarget.y) + fighterHeight / 2 }; const sourceNameForLog = weapon.type === 'melee' ? attacker.name : primaryTarget.name; spawnAoeIndicator(effectCenter.x, effectCenter.y, areaDetails.radius); logMessage(`💣 ${attacker.weapon.name} создает область поражения ${weapon.type === 'melee' ? 'вокруг себя' : `вокруг ${sourceNameForLog}`}!`); currentFighters.forEach(otherFighter => { if (!otherFighter.alive || otherFighter.id === attacker.id) return; if (weapon.type === 'ranged' && otherFighter.id === primaryTarget.id) return; const distanceToEpicenter = getDistance(otherFighter, effectCenter); if (distanceToEpicenter <= areaDetails.radius) { let areaDamage = (attacker.weapon.damage * areaDetails.damageFraction) + (Math.random()*2.5-1.2); if (isParentAttackCritical) areaDamage *= CRITICAL_HIT_MULTIPLIER * 0.75; if (isParentAttackEnraged) { let currentEnrageMultiplier = BASE_ENRAGE_DAMAGE_MULTIPLIER; if (activeRoundModifier && activeRoundModifier.id === 'berserker_rage' && activeRoundModifier.getModifiedEnrageDamageMultiplier) { currentEnrageMultiplier = activeRoundModifier.getModifiedEnrageDamageMultiplier(); } areaDamage *= currentEnrageMultiplier; } if (activeRoundModifier && activeRoundModifier.id === 'heavy_hits' && activeRoundModifier.getDamageMultiplier) { areaDamage *= activeRoundModifier.getDamageMultiplier(weapon.type); } otherFighter.health -= areaDamage; otherFighter.lastDamagedBy = attacker.id; const aoeDamageLogType = isParentAttackCritical ? "log-crit-damage" : "log-damage"; logMessage(`💥 <span class="${aoeDamageLogType}">${otherFighter.name}</span> задет взрывом/ударом, получает ${areaDamage.toFixed(1)} урона. (❤️${otherFighter.health.toFixed(1)})`, aoeDamageLogType); if (otherFighter.element) { otherFighter.element.classList.add('hit'); spawnHitEffect(otherFighter.x, otherFighter.y, isParentAttackCritical ? 'critical' : 'default'); setTimeout(() => otherFighter.element && otherFighter.element.classList.remove('hit'), 220); } if (otherFighter.health <= 0 && otherFighter.alive) { otherFighter.alive = false; otherFighter.health = 0; otherFighter.killedByInLastStep = attacker.id; logMessage(`💀 <span class="log-kill">${otherFighter.name}</span> погиб от массовой атаки!`, "log-kill"); attacker.combatStats.kills = (attacker.combatStats.kills || 0) + 1; otherFighter.lastDefeatedBy = attacker.id; if (!defeatedFightersOrder.includes(otherFighter.id)) defeatedFightersOrder.push(otherFighter.id); } updateFighterElement(otherFighter); } }); }
+
+        function updateFighterElement(fighter) {
+            if (!fighter.element) { console.warn("No element for fighter:", fighter.name); return; }
+            fighter.element.style.left = `${fighter.x}px`;
+            fighter.element.style.top = `${fighter.y}px`;
+            const healthBarDiv = fighter.element.querySelector('.health-bar');
+            if (healthBarDiv) {
+                const healthPercent = Math.max(0, (fighter.health / fighter.maxHealth) * 100);
+                healthBarDiv.style.width = `${healthPercent}%`;
+                healthBarDiv.classList.toggle('poisoned', fighter.isPoisoned);
+                if (!fighter.isPoisoned) {
+                    if (healthPercent <= 0) healthBarDiv.style.backgroundColor = '#424242';
+                    else if (healthPercent < 25) healthBarDiv.style.backgroundColor = '#F44336';
+                    else if (healthPercent < 50) healthBarDiv.style.backgroundColor = '#FFC107';
+                    else healthBarDiv.style.backgroundColor = '#4CAF50';
+                }
+            }
+            fighter.element.classList.toggle('enraged', fighter.enrageActive);
+            fighter.element.classList.toggle('is-rooted', fighter.isRooted);
+            fighter.element.classList.toggle('is-slowed', fighter.isSlowed < 1 && fighter.isSlowed > 0);
+            fighter.element.classList.toggle('is-stunned', fighter.isStunned && !fighter.isRooted);
+            if (!fighter.alive) { fighter.element.classList.add('defeated'); fighter.element.style.animation = ''; fighter.element.classList.remove('enraged', 'is-rooted', 'is-slowed', 'is-stunned'); } else { fighter.element.classList.remove('defeated'); const weaponEmojiEl = fighter.element.querySelector('.weapon-emoji'); if (weaponEmojiEl && fighter.weapon) weaponEmojiEl.textContent = fighter.weapon.emoji; let currentFilter = ''; if (fighter.isStunned && !fighter.isRooted) currentFilter += ' saturate(0.1) brightness(0.55) contrast(0.8)'; else if (fighter.isBlinded) currentFilter += ' blur(1.3px) brightness(0.45)'; fighter.element.style.filter = currentFilter; let currentAnimation = ''; if (fighter.enrageActive) currentAnimation += 'pulseEnrageShadow 0.7s infinite alternate'; if (fighter.isConfused) currentAnimation += (currentAnimation ? ', ' : '') + 'confuseSway 0.45s infinite alternate ease-in-out'; const imgEl = fighter.element.querySelector('img'); if (imgEl) { if (fighter.isStunned && !fighter.isRooted && !fighter.enrageActive) { imgEl.style.animation = 'pulseStunned 0.5s infinite alternate'; } else if (fighter.enrageActive) { imgEl.style.animation = 'pulseEnrageShadow 0.7s infinite alternate'; } else { imgEl.style.animation = ''; } } fighter.element.style.animation = currentAnimation; if(fighter.isConfused) fighter.element.style.transformOrigin = 'bottom center'; else fighter.element.style.transformOrigin = ''; }
+        }
+
+        // --- УПРАВЛЕНИЕ БОНУСАМИ ---
+        function manageArenaBonuses() { if (!arenaBonuses.some(b => b.type === 'health_pack') && arenaBonuses.length < MAX_ARENA_BONUSES && Math.random() < BONUS_SPAWN_CHANCE_PER_TICK * 2) { spawnHealthPack(); } if (roundCounter >= nextEliteWeaponSpawnRound && !arenaBonuses.some(b => b.type === 'elite_weapon_pickup') && arenaBonuses.length < MAX_ARENA_BONUSES) { spawnEliteWeapon(); nextEliteWeaponSpawnRound = roundCounter + ELITE_WEAPON_SPAWN_ROUND_INTERVAL_MIN + Math.floor(Math.random() * (ELITE_WEAPON_SPAWN_ROUND_INTERVAL_MAX - ELITE_WEAPON_SPAWN_ROUND_INTERVAL_MIN + 1)); } }
+        function spawnHealthPack() { const arenaWidth = arenaEl.offsetWidth; const arenaHeight = arenaEl.offsetHeight; const bonusSize = 35; let newBonus = { id: `bonus-hp-${Date.now()}`, type: 'health_pack', healAmount: HEALTH_PACK_HEAL_AMOUNT, x: Math.random() * (arenaWidth - bonusSize * 3) + bonusSize * 1.5, y: Math.random() * (arenaHeight - bonusSize * 3) + bonusSize * 1.5, width: bonusSize, height: bonusSize, element: null }; let overlapsFighter = false; for(const fighter of currentFighters.filter(f => f.alive)) { if(getDistance(fighter, {x: newBonus.x, y: newBonus.y, width:bonusSize, height:bonusSize}) < (fighterWidth/2 + bonusSize/2 + 10)) { overlapsFighter = true; break; } } if (!overlapsFighter) { const bonusEl = document.createElement('div'); bonusEl.classList.add('arena-bonus', 'health-pack'); bonusEl.id = newBonus.id; bonusEl.style.left = `${newBonus.x}px`; bonusEl.style.top = `${newBonus.y}px`; bonusEl.textContent = '✚'; bonusEl.title = `Аптечка (+${newBonus.healAmount} ❤️)`; arenaEl.appendChild(bonusEl); newBonus.element = bonusEl; arenaBonuses.push(newBonus); logMessage(`🎁 На арене появилась <span class="log-bonus">аптечка</span>!`, "log-bonus"); } }
+        function spawnEliteWeapon() { const arenaWidth = arenaEl.offsetWidth; const arenaHeight = arenaEl.offsetHeight; const bonusSize = 40; let newBonus = { id: `bonus-ew-${Date.now()}`, type: 'elite_weapon_pickup', weaponData: JSON.parse(JSON.stringify(eliteWeaponData)), x: Math.random() * (arenaWidth - bonusSize * 3) + bonusSize * 1.5, y: Math.random() * (arenaHeight - bonusSize * 3) + bonusSize * 1.5, width: bonusSize, height: bonusSize, element: null }; let overlaps = false; for(const fighter of currentFighters.filter(f => f.alive)) { if(getDistance(fighter, {x: newBonus.x, y: newBonus.y, width:bonusSize, height:bonusSize}) < (fighterWidth/2 + bonusSize/2 + 10)) { overlaps = true; break; } } if (!overlaps && !arenaBonuses.some(b=> getDistance(b, newBonus) < bonusSize*2 )) { const bonusEl = document.createElement('div'); bonusEl.classList.add('arena-bonus', 'elite-weapon-pickup'); bonusEl.id = newBonus.id; bonusEl.style.left = `${newBonus.x}px`; bonusEl.style.top = `${newBonus.y}px`; bonusEl.textContent = eliteWeaponData.emoji; bonusEl.title = `Элитное оружие: ${eliteWeaponData.name}`; arenaEl.appendChild(bonusEl); newBonus.element = bonusEl; arenaBonuses.push(newBonus); logMessage(`🌟 <span class="log-elite-weapon">На арену падает могущественное оружие: ${eliteWeaponData.name} ${eliteWeaponData.emoji}!</span>`, "log-elite-weapon"); } }
+
+        // --- УПРАВЛЕНИЕ РАУНДОМ ---
+        function proceedToRoundStart() {
+            if (isGameOver) return;
+            if (roundInfoOverlayEl) roundInfoOverlayEl.style.display = 'none';
+            if (placeBetButtonEl) placeBetButtonEl.style.display = 'none';
+            console.log("Round info overlay hidden.");
+            logMessage("🔥 БИТВА НАЧАЛАСЬ! 🔥", "log-round-start");
+            roundInProgress = true;
+            console.log("roundInProgress set to true. Starting gameLoopInterval.");
+            if (gameLoopInterval) clearInterval(gameLoopInterval);
+            gameLoopInterval = setInterval(gameTick, 50);
+        }
+
+        function setupNewRound(isContinuation = false) {
+            if (isGameOver) return;
+            console.log("--- Starting setupNewRound --- isContinuation:", isContinuation);
+            try {
+                roundInProgress = false;
+                if (gameLoopInterval) clearInterval(gameLoopInterval);
+                arenaEl.innerHTML = '';
+                arenaBonuses.forEach(b => { if (b.element && b.element.parentElement) b.element.remove(); });
+                arenaBonuses = [];
+                currentFighters = [];
+                duelContenders = null;
+                activeRoundModifier = null;
+
+                playerGold += 100;
+                currentBet = { fighterId: null, amount: 0, placed: false };
+                isBettingPaused = false;
+                defeatedFightersOrder = [];
+                updatePlayerGoldDisplay();
+
+                if (bettingModalEl) bettingModalEl.style.display = 'none';
+
+
+                if (!isContinuation) roundCounter = 0;
+                roundCounter++;
+                createFighterInstance.commonWeaponThisRound = null;
+
+                if (!isContinuation) {
+                    battleLogEl.innerHTML = '';
+                }
+                logMessage(`⚔️ Раунд ${roundCounter} начинается! Бойцы готовятся...`, "log-round-start");
+
+                if (roundCounter > 1 && Math.random() < MODIFIER_CHANCE_PER_ROUND) {
+                    activeRoundModifier = roundModifiers[Math.floor(Math.random() * roundModifiers.length)];
+                    logMessage(`🔮 МОДИФИКАТОР РАУНДА: <span class="log-modifier">${activeRoundModifier.name}</span>`, "log-modifier");
+                    logMessage(`<i>${activeRoundModifier.description}</i>`, "log-modifier");
+                }
+
+
+                if (roundCounter > 0 && roundCounter % 5 === 0) {
+                    logMessage("💥 <span class='log-winner'>Спец-раунд! Все бойцы получают одинаковое оружие!</span>", "log-winner");
+                }
+
+                const participatingFightersData = fightersInitialData.filter(fData => fData.participating);
+                console.log("Participating fighters data count:", participatingFightersData.length);
+                if (participatingFightersData.length < 2) {
+                    logMessage("Недостаточно бойцов для начала раунда (нужно минимум 2). Отметьте участников в таблице.", "log-kill");
+                    startButtonEl.textContent = 'Нужно больше бойцов!';
+                    startButtonEl.disabled = false;
+                    firstRoundStarted = false;
+                    roundCounter--;
+                    activeRoundModifier = null;
+                    return;
+                }
+
+                currentFighters = participatingFightersData.map(data => createFighterInstance(data));
+                console.log("Current fighters created:", currentFighters.length);
+
+                const allFightersAreActuallyParticipating = fightersInitialData.every(fData => fData.participating);
+                if (placeBetButtonEl) {
+                    if (allFightersAreActuallyParticipating && currentFighters.length >= 2) {
+                        placeBetButtonEl.style.display = 'block';
+                        logMessage("💰 Доступны ставки на этот раунд! (Все бойцы участвуют)", "log-bonus");
+                    } else {
+                        placeBetButtonEl.style.display = 'none';
+                        if (!allFightersAreActuallyParticipating) {
+                            logMessage("Ставки недоступны: не все бойцы участвуют в этом раунде.", "log-effect");
+                        } else {
+                             logMessage("Ставки недоступны: недостаточно бойцов для ставок.", "log-effect");
+                        }
+                    }
+                }
+
+
+                weaponInfoListEl.innerHTML = '';
+                currentFighters.forEach(fighter => {
+                    createFighterElement(fighter);
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="fighter-name-info">${fighter.name}</span> вооружен: <span class="weapon-name-info">${fighter.weapon.name}</span> <span class="weapon-emoji-info">${fighter.weapon.emoji}</span>`;
+                    weaponInfoListEl.appendChild(li);
+                });
+                console.log("Weapon info list populated.");
+
+                roundInfoOverlayEl.style.display = 'flex';
+                console.log("Round info overlay displayed.");
+
+                startButtonEl.textContent = 'Раунд Идет...';
+                startButtonEl.disabled = true;
+
+                if (preRoundTimeoutId) clearTimeout(preRoundTimeoutId);
+                preRoundTimeoutId = setTimeout(() => {
+                    if (!isBettingPaused) {
+                        proceedToRoundStart();
+                    }
+                }, PRE_ROUND_WEAPON_DISPLAY_DURATION);
+
+            } catch (e) {
+                console.error("Критическая ошибка в setupNewRound:", e);
+                logMessage(`Критическая ошибка при настройке раунда: ${e.message}`, "log-kill");
+                startButtonEl.textContent = 'Ошибка! Перезапустить?';
+                startButtonEl.disabled = false;
+                firstRoundStarted = false;
+                activeRoundModifier = null;
+            }
+        }
+
+        function gameTick() {
+            if (!roundInProgress || isGameOver) return;
+            try {
+                const aliveFighters = currentFighters.filter(f => f.alive);
+
+                if (duelContenders) {
+                    const [fighter1, fighter2] = duelContenders;
+                    if (!fighter1.alive || !fighter2.alive) {
+                        const duelWinner = fighter1.alive ? fighter1 : (fighter2.alive ? fighter2 : null);
+                        const duelLoser = fighter1.alive ? fighter2 : fighter1;
+                        if(duelWinner) logMessage(`👑 <span class="log-winner">${duelWinner.name}</span> побеждает в дуэли против ${duelLoser.name}!`, "log-winner");
+                        else logMessage(`💔 Дуэль между ${fighter1.name} и ${fighter2.name} завершилась без явного победителя.`, "log-winner");
+                        duelContenders = null;
+                        if (currentFighters.filter(f => f.alive).length <= 1) { endRound(); return; }
+                    }
+                } else if (aliveFighters.length <= 1) {
+                    endRound();
+                    return;
+                }
+
+                aliveFighters.forEach(fighter => {
+                    if (!fighter.alive) return;
+                    applyStatusEffects(fighter);
+                    if (fighter.isStunned) return;
+                    fighter.killedInLastStep = null;
+                    chooseAction(fighter, aliveFighters, arenaBonuses);
+                    executeAction(fighter, aliveFighters, arenaBonuses);
+                    updateFighterElement(fighter);
+                });
+                manageArenaBonuses();
+                if (!duelContenders && currentFighters.filter(f => f.alive).length === 2) {
+                    duelContenders = currentFighters.filter(f => f.alive);
+                    if (duelContenders.length === 2) logMessage(`⚔️ <span class="log-duel">ДУЭЛЬ!</span> ${duelContenders[0].name} против ${duelContenders[1].name}!`, "log-duel");
+                    else duelContenders = null;
+                }
+            } catch (e) {
+                console.error("Ошибка в gameTick:", e);
+                logMessage(`Критическая ошибка в игровом цикле: ${e.message}`, "log-kill");
+                if (gameLoopInterval) clearInterval(gameLoopInterval);
+                roundInProgress = false;
+                startButtonEl.textContent = 'Ошибка! Перезапустить?';
+                startButtonEl.disabled = false;
+                firstRoundStarted = false;
+            }
+        }
+
+        function endRound() {
+            if (isGameOver) return;
+            console.log("--- Starting endRound ---");
+            try {
+                roundInProgress = false;
+                if (gameLoopInterval) clearInterval(gameLoopInterval);
+                const aliveFighters = currentFighters.filter(f => f.alive);
+                let winner = null;
+                const totalInitialFighters = currentFighters.length;
+
+                if (aliveFighters.length === 1) {
+                    winner = aliveFighters[0];
+                    logMessage(`🎉 <span class="log-winner">${winner.name}</span> ПОБЕЖДАЕТ В РАУНДЕ ${roundCounter}!`, "log-winner");
+                    const winnerData = fightersInitialData.find(f => f.id === winner.id);
+                    if (winnerData) winnerData.wins++;
+                } else if (aliveFighters.length === 0) {
+                    logMessage(`💔 Все бойцы пали в раунде ${roundCounter}! Ничья...`, "log-winner");
+                } else {
+                    logMessage(`🤔 Раунд ${roundCounter} завершен (${aliveFighters.length} выживших).`, "log-winner");
+                }
+
+                if (currentBet.placed && currentBet.fighterId && currentBet.amount > 0) {
+                    let payoutMultiplier = 0;
+                    let placeTaken = 0;
+                    const betOnFighterData = fightersInitialData.find(f => f.id === currentBet.fighterId);
+                    const betOnFighterName = betOnFighterData ? betOnFighterData.name : "Боец";
+
+                    if (winner && winner.id === currentBet.fighterId) {
+                        payoutMultiplier = 10; placeTaken = 1;
+                    } else if (winner) {
+                        if (defeatedFightersOrder.length > 0 && defeatedFightersOrder[defeatedFightersOrder.length - 1] === currentBet.fighterId) {
+                             payoutMultiplier = 5; placeTaken = 2;
+                        }
+                        else if (defeatedFightersOrder.length > 1 && defeatedFightersOrder[defeatedFightersOrder.length - 2] === currentBet.fighterId) {
+                             payoutMultiplier = 3; placeTaken = 3;
+                        }
+                    } else if (aliveFighters.length === 0 && defeatedFightersOrder.length === totalInitialFighters) {
+                        if (totalInitialFighters >= 1 && defeatedFightersOrder[totalInitialFighters - 1] === currentBet.fighterId) {
+                             payoutMultiplier = 10; placeTaken = 1;
+                        } else if (totalInitialFighters >= 2 && defeatedFightersOrder[totalInitialFighters - 2] === currentBet.fighterId) {
+                             payoutMultiplier = 5; placeTaken = 2;
+                        } else if (totalInitialFighters >= 3 && defeatedFightersOrder[totalInitialFighters - 3] === currentBet.fighterId) {
+                             payoutMultiplier = 3; placeTaken = 3;
+                        }
+                    }
+
+                    if (payoutMultiplier > 0) {
+                        const winnings = currentBet.amount * payoutMultiplier;
+                        playerGold += winnings;
+                        logMessage(`💰 ПОЗДРАВЛЯЕМ! Ваша ставка на <span class="log-winner">${betOnFighterName}</span> (${placeTaken}-е место) выиграла! Вы получаете ${winnings.toLocaleString()} золота!`, "log-winner");
+                    } else {
+                        logMessage(`💔 Ваша ставка на <span class="log-damage">${betOnFighterName}</span> не сыграла. Вы теряете ${currentBet.amount.toLocaleString()} золота.`, "log-damage");
+                    }
+                }
+                currentBet = { fighterId: null, amount: 0, placed: false };
+                updatePlayerGoldDisplay();
+
+
+                currentFighters.forEach(cf => {
+                    const fid = fightersInitialData.find(f => f.id === cf.id);
+                    if (fid) { fid.combatStats.learnedGrudges = cf.combatStats.learnedGrudges; if (cf.lastDefeatedBy) fid.lastDefeatedBy = cf.lastDefeatedBy; }
+                });
+                updateScoreboard();
+                currentFighters.forEach(f => { if (!f.alive && f.element) f.element.classList.add('defeated'); });
+
+                if (isGameOver) return;
+
+                logMessage(`Подготовка к раунду ${roundCounter + 1}...`, "log-round-start");
+                setTimeout(() => {
+                    if (isGameOver) return;
+                    setupNewRound(true);
+                }, newRoundDelay);
+            } catch (e) {
+                console.error("Ошибка в endRound:", e);
+                logMessage(`Критическая ошибка при завершении раунда: ${e.message}`, "log-kill");
+                startButtonEl.textContent = 'Ошибка! Перезапустить?';
+                startButtonEl.disabled = false;
+                firstRoundStarted = false;
+            }
+        }
+
+        // --- ИНИЦИАЛИЗАЦИЯ ---
+        try {
+            console.log("Initializing game...");
+            startButtonEl.addEventListener('click', () => {
+                if (isGameOver) return;
+                console.log("Start button clicked. firstRoundStarted:", firstRoundStarted, "roundInProgress:", roundInProgress);
+                if (!firstRoundStarted && !roundInProgress) {
+                    firstRoundStarted = true;
+                    startButtonEl.textContent = 'Подготовка...';
+                    startButtonEl.disabled = true;
+                    setupNewRound(false);
+                } else if (startButtonEl.textContent === 'Ошибка! Перезапустить?' || startButtonEl.textContent === 'Нужно больше бойцов!') {
+                    firstRoundStarted = true;
+                    startButtonEl.textContent = 'Подготовка...';
+                    startButtonEl.disabled = true;
+                    setupNewRound(false);
+                }
+            });
+
+            if (placeBetButtonEl) {
+                placeBetButtonEl.addEventListener('click', () => {
+                    if(isGameOver) return;
+
+                    const allFightersAreActuallyParticipating = fightersInitialData.every(fData => fData.participating);
+                    if (!allFightersAreActuallyParticipating || currentFighters.length < 2) {
+                        alert("Ставки недоступны: не все бойцы участвуют или недостаточно бойцов.");
+                        placeBetButtonEl.style.display = 'none';
+                        return;
+                    }
+
+                    isBettingPaused = true;
+                    if (preRoundTimeoutId) clearTimeout(preRoundTimeoutId);
+
+                    betFighterSelectEl.innerHTML = '';
+                    currentFighters.filter(f => f.alive).forEach(f => {
+                        const option = document.createElement('option');
+                        option.value = f.id;
+                        option.textContent = f.name;
+                        betFighterSelectEl.appendChild(option);
+                    });
+                    betAmountInputEl.value = '';
+                    betAmountInputEl.max = playerGold;
+                    betErrorMessageEl.textContent = '';
+                    updatePlayerGoldDisplay();
+                    if (bettingModalEl) bettingModalEl.style.display = 'flex';
+                });
+            }
+
+            if (confirmBetButtonEl) {
+                confirmBetButtonEl.addEventListener('click', () => {
+                    if(isGameOver) return;
+                    const selectedFighterId = betFighterSelectEl.value;
+                    const betAmount = parseInt(betAmountInputEl.value);
+
+                    betErrorMessageEl.textContent = '';
+                    if (!selectedFighterId) {
+                        betErrorMessageEl.textContent = 'Пожалуйста, выберите бойца.';
+                        return;
+                    }
+                    if (isNaN(betAmount) || betAmount <= 0) {
+                        betErrorMessageEl.textContent = 'Пожалуйста, введите корректную сумму ставки.';
+                        return;
+                    }
+                    if (betAmount > playerGold) {
+                        betErrorMessageEl.textContent = 'Недостаточно золота для такой ставки.';
+                        return;
+                    }
+
+                    currentBet.fighterId = selectedFighterId;
+                    currentBet.amount = betAmount;
+                    currentBet.placed = true;
+                    playerGold -= betAmount;
+                    updatePlayerGoldDisplay();
+                    const fighterBetOn = currentFighters.find(f => f.id === selectedFighterId);
+                    logMessage(`💰 Вы поставили ${betAmount.toLocaleString()} золота на <span class="log-winner">${fighterBetOn ? fighterBetOn.name : 'бойца'}</span>!`);
+
+                    if (bettingModalEl) bettingModalEl.style.display = 'none';
+                    isBettingPaused = false;
+                    proceedToRoundStart();
+                });
+            }
+
+            if (skipBetButtonEl) {
+                skipBetButtonEl.addEventListener('click', () => {
+                    if(isGameOver) return;
+                    if (bettingModalEl) bettingModalEl.style.display = 'none';
+                    isBettingPaused = false;
+                    proceedToRoundStart();
+                });
+            }
+
+            if (buyLandButtonEl) {
+                buyLandButtonEl.addEventListener('click', () => {
+                    if (playerGold >= WIN_AMOUNT_FOR_LAND && !isGameOver) {
+                        playerGold -= WIN_AMOUNT_FOR_LAND;
+                        updatePlayerGoldDisplay();
+                        isGameOver = true;
+                        if (gameLoopInterval) clearInterval(gameLoopInterval);
+                        if (preRoundTimeoutId) clearTimeout(preRoundTimeoutId);
+                        roundInProgress = false;
+                        startButtonEl.disabled = true;
+                        startButtonEl.textContent = "ИГРА ОКОНЧЕНА";
+                        if (roundInfoOverlayEl) roundInfoOverlayEl.style.display = 'none';
+                        if (bettingModalEl) bettingModalEl.style.display = 'none';
+
+                        arenaEl.innerHTML = '';
+                        battleLogEl.innerHTML = '<p style="text-align:center; font-size: 1.5em;">👑👑👑</p>';
+                        logMessage(`ПОЗДРАВЛЯЕМ! ВЫ ПОТРАТИЛИ ${WIN_AMOUNT_FOR_LAND.toLocaleString()} 💰, КУПИЛИ ЗЕМЛЮ И СТАЛИ БОГОМ!`, "log-winner");
+
+                        if (gameOverOverlayEl) gameOverOverlayEl.style.display = 'flex';
+                        updateScoreboard();
+                        updatePlayerGoldDisplay(); // To ensure button state is updated after spending gold
+                    } else if (!isGameOver) {
+                        alert(`Недостаточно золота! Нужно ${WIN_AMOUNT_FOR_LAND.toLocaleString()} 💰.`);
+                    }
+                });
+            }
+
+            updateScoreboard();
+            updatePlayerGoldDisplay(); // Initial call to set button state
+            logMessage("Ожидание начала первой битвы...");
+            console.log("Game initialized.");
+        } catch (e) {
+            console.error("Критическая ошибка при инициализации:", e);
+            alert("Произошла критическая ошибка при инициализации. Пожалуйста, проверьте консоль разработчика (F12).");
+        }
+    </script>
+</body>
+</html>
