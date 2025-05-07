@@ -20,8 +20,8 @@
             --elite-weapon-color: #AF7AC5;
             --root-color: #8D6E63;
             --slow-color: #78909C;
-            --poison-color: #4CAF50;
-            --poison-effect-color: #388E3C;
+            --poison-color: #4CAF50; /* Это цвет яда, такой же как здоровый. Может стоит поменять? */
+            --poison-effect-color: #388E3C; /* Для текста в логе */
             --modifier-color: #82EEFD;
             --evasion-color: #AED6F1;
         }
@@ -76,9 +76,34 @@
         .fighter-on-arena.is-stunned img { animation: pulseStunned 0.5s infinite alternate; }
         @keyframes pulseStunned { from { box-shadow: 0 0 8px 2px var(--warning-color); transform: rotate(-2deg); } to { box-shadow: 0 0 12px 4px var(--warning-color); transform: rotate(2deg); } }
 
-        .fighter-on-arena .health-bar-container { width: 60px; height: 10px; background-color: #333; border: 1px solid #1a1a1a; border-radius: 3px; margin-bottom: 4px; padding: 1px; box-sizing: border-box; }
-        .fighter-on-arena .health-bar { width: 100%; height: 6px; background-color: #4CAF50; border-radius: 1px; transition: width 0.2s ease-out, background-color 0.2s ease-out; }
-        .fighter-on-arena .health-bar.poisoned { background-color: var(--poison-color) !important; }
+        /* --- ИЗМЕНЕНИЯ ЗДЕСЬ --- */
+        .fighter-on-arena .health-bar-container {
+            width: 60px;
+            height: 10px; /* Общая высота контейнера, включая рамку и "отступы" вокруг бара */
+            background-color: #333; /* Фон, который будет виден как "отступ" вокруг бара */
+            border: 1px solid #1a1a1a;
+            border-radius: 3px;
+            margin-bottom: 4px;
+            /* padding: 1px; */ /* УБРАЛИ padding */
+            box-sizing: border-box;
+            position: relative; /* Для абсолютного позиционирования дочернего .health-bar */
+        }
+
+        .fighter-on-arena .health-bar {
+            position: absolute;
+            top: 1px;    /* Отступ от верхнего края контейнера (после его border) */
+            left: 1px;   /* Отступ от левого края контейнера (после его border) */
+            height: 6px; /* Явная высота самой полоски здоровья */
+            /* width: 100%;  Начальная ширина, будет изменяться JS. Можно оставить или убрать. */
+            background-color: #4CAF50; /* Начальный цвет, будет переопределен JS */
+            border-radius: 1px; /* Скругление для самой полоски, можно сделать чуть меньше чем у контейнера (например, 2px или 1px) */
+            transition: width 0.2s ease-out, background-color 0.2s ease-out;
+        }
+        /* --- КОНЕЦ ИЗМЕНЕНИЙ --- */
+
+        .fighter-on-arena .health-bar.poisoned {
+            background-color: var(--poison-color) !important;
+        }
 
         .fighter-on-arena img { width: 55px; height: 55px; border-radius: 50%; border: 2px solid var(--secondary-color); object-fit: cover; box-shadow: 0 3px 10px rgba(0,0,0,0.5); background-color: #666; transition: box-shadow 0.2s; }
         .fighter-on-arena.enraged img { box-shadow: 0 0 12px 3px var(--enrage-color); animation: pulseEnrageShadow 0.7s infinite alternate; }
@@ -768,6 +793,7 @@
                     else if (healthPercent < 50) healthBarDiv.style.backgroundColor = '#FFC107';
                     else healthBarDiv.style.backgroundColor = '#4CAF50';
                 }
+                 // Если isPoisoned, то сработает CSS класс .poisoned с !important
             }
             fighter.element.classList.toggle('enraged', fighter.enrageActive);
             fighter.element.classList.toggle('is-rooted', fighter.isRooted);
